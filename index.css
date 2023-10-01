@@ -1,0 +1,29 @@
+
+.fullscreen {
+  margin: 0px;
+  padding: 0px;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+html, body {
+  overflow: hidden;
+  font-family: sans-serif;
+  color: #2f2f2f;
+}
+
+
+
+/* Canvas */
+
+.container {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  z-index: 1;
+  top: 0px;
+  left: 0px;
+  background: #0d1230;
+  background: radial-gradient(circle, #0d2430 0%, #0a0a0a 100%);
+}
