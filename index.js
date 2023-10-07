@@ -19,6 +19,8 @@ let
   particleManipulator,
   dummyMatrix,
   particleMeshes,
+  prevActivePathPos,
+  activePathPos,
   sceneRendered;
 
 const setScene = async () => {
@@ -48,6 +50,7 @@ const setScene = async () => {
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
+  createPath();
   resize();
   listenTo();
   render();
@@ -65,7 +68,7 @@ const setControls = () => {
 
 const setTileValues = () => {
 
-  const centerTileFromTo = 40;
+  const centerTileFromTo = 20;
 
   centerTile = {
     xFrom:  -centerTileFromTo,
@@ -81,7 +84,7 @@ const setTileValues = () => {
   dummyMatrix             = new THREE.Matrix4();
   particleMeshes          = [];
 
-}
+};
 
 const createSurroundingTiles = (newActiveTile) => {
 
@@ -92,7 +95,7 @@ const createSurroundingTiles = (newActiveTile) => {
       yFrom:  parsedCoords.y,
       yTo:    parsedCoords.y + tileWidth
     }
-  }
+  };
 
   const parsedCoords = JSON.parse(newActiveTile);
 
@@ -113,7 +116,7 @@ const createSurroundingTiles = (newActiveTile) => {
 
   setCenterTile(parsedCoords);
 
-}
+};
 
 const tileYNegative = () => {
 
@@ -121,7 +124,7 @@ const tileYNegative = () => {
   centerTile.yTo -= tileWidth;
   createTile();
 
-}
+};
 
 const tileYPositive = () => {
 
@@ -129,7 +132,7 @@ const tileYPositive = () => {
   centerTile.yTo += tileWidth;
   createTile();
 
-}
+};
 
 const tileXNegative = () => {
 
@@ -137,7 +140,7 @@ const tileXNegative = () => {
   centerTile.xTo -= tileWidth;
   createTile();
 
-}
+};
 
 const tileXPositive = () => {
 
@@ -145,13 +148,13 @@ const tileXPositive = () => {
   centerTile.xTo += tileWidth;
   createTile();
 
-}
+};
 
 const createTile = () => {
 
   const tileToPosition = (tileX, height, tileY) => {
     return new THREE.Vector3((tileX + (tileY % 2) * 0.5) * 1.68, height, tileY * 1.535);
-  }
+  };
 
   const setParticleMesh = () => {
 
@@ -161,13 +164,10 @@ const createTile = () => {
       side:   THREE.DoubleSide
     });
     const mesh  = new THREE.InstancedMesh(geo, mat, amountOfParticlesInTile);
-
-    mesh.castShadow     = true;
-    mesh.receiveShadow  = true;
   
     return mesh;
 
-  }
+  };
 
   const particle        = setParticleMesh();
   let   particleCounter = 0;
@@ -182,12 +182,16 @@ const createTile = () => {
       const height  = noise1 * noise2 * maxHeight;
 
       const pos = tileToPosition(i, height, e);
-      particleManipulator.position.set(pos.x, pos.y < 2 ? 2 : pos.y, pos.z);
+      particleManipulator.position.set(pos.x, pos.y, pos.z);
+      // particleManipulator.position.set(pos.x, pos.y < 2 ? 2 : pos.y, pos.z);
 
       particleManipulator.updateMatrix();
       particle.setMatrixAt(particleCounter, particleManipulator.matrix);
 
       particleCounter++;
+
+      if(!particleMeshes.length)
+        if(i === centerTile.xFrom && e === centerTile.yFrom) activePathPos = pos;
 
     }
   }
@@ -195,7 +199,122 @@ const createTile = () => {
   scene.add(particle);
   particleMeshes.push(particle);
 
-}
+};
+
+const createPath = () => {
+
+  const setParticleMesh = () => {
+
+    const geo   = new THREE.CircleGeometry(1.2, 5);
+    const mat   = new THREE.MeshStandardMaterial({
+      color:  0xffffff, 
+      side:   THREE.DoubleSide
+    });
+    const mesh  = new THREE.InstancedMesh(geo, mat, pathSize);
+  
+    return mesh;
+
+  };
+
+  const getSurroundingPositions = () => {
+
+    const surroundingPositions = [];
+
+    for(let i = 0; i < particleMeshes.length; i++) {
+      for(let e = 0; e < amountOfParticlesInTile; e++) {
+  
+        particleMeshes[i].getMatrixAt(e, dummyMatrix);
+        dummyMatrix.decompose(
+          particleManipulator.position, 
+          particleManipulator.quaternion, 
+          particleManipulator.scale
+        );
+
+        if(activePathPos.distanceTo(particleManipulator.position) < 3)
+          if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
+            surroundingPositions.push(JSON.stringify(particleManipulator.position));
+  
+      }
+    }
+
+    return surroundingPositions;
+
+  }
+  
+  // https://stackoverflow.com/questions/60735673/finding-angle-of-rotation-from-origin-to-a-vector-in-3d-space-threejs
+  const getAngle = (from, to) => {
+
+    const vecFrom = new THREE.Vector3(from.x, from.y, from.z);
+    const vecTo = new THREE.Vector3(to.x, to.y, to.z);
+
+    const fromX = new THREE.Vector3(vecFrom.x, 0, 0);
+    const toXZ  = new THREE.Vector3(vecTo.x, 0, vecTo.z);
+  
+    return Math.acos(fromX.dot(toXZ.normalize()));
+
+  }
+
+  const getDirectionForward = (from, to) => {
+
+    const dir = new THREE.Vector3();
+
+    if(!from) return dir;
+
+    // dir.subVectors(to, from).normalize();
+    // return dir;
+    // return from.angleTo(to);
+    return getAngle(from, to);
+
+  }
+
+  const getLowestPoint = (positions, dirForward) => {
+
+    console.log(positions.length);
+    console.log('e', dirForward);
+    // activePathPos.applyAxisAngle(dirForward, 270);
+    console.log('greaterThen:', dirForward - (Math.PI / 2));
+    console.log('lessThen:', dirForward + (Math.PI / 2));
+
+    let lowestPosition;
+
+    for(let i = 0; i < positions.length; i++) {
+
+      let pos = JSON.parse(positions[i]);
+      pos     = new THREE.Vector3(pos.x, pos.y, pos.z);
+      const dir = getAngle(activePathPos, pos);
+      console.log('dir:', dir);
+      // if(dir > dirForward - (Math.PI / 3) && dir < dirForward + (Math.PI / 3))
+      //   console.log('eee');
+        
+      if(!lowestPosition || pos.y < lowestPosition.y) 
+        lowestPosition = pos;
+
+    }
+
+    return new THREE.Vector3(lowestPosition.x, lowestPosition.y, lowestPosition.z);
+
+  };
+
+  const pathSize      = 25;
+  const pathParticle  = setParticleMesh();
+
+  for(let i = 0; i < pathSize; i++) {
+
+    const surroundingPositions  = getSurroundingPositions();
+    const dir                   = getDirectionForward(prevActivePathPos, activePathPos);
+    const pos                   = getLowestPoint(surroundingPositions, dir);
+    prevActivePathPos           = activePathPos;
+    activePathPos               = pos;
+
+    particleManipulator.position.set(pos.x, pos.y + 5, pos.z);
+    particleManipulator.updateMatrix();
+    pathParticle.setMatrixAt(i, particleManipulator.matrix);
+    
+  }
+
+  scene.add(pathParticle);
+
+};
 
 const resize = () => {
 
@@ -217,8 +336,8 @@ const listenTo = () => {
 
 const updateParticles = () => {
 
-  for (let i = 0; i < particleMeshes.length; i++) {
-    for (let e = 0; e < amountOfParticlesInTile; e++) {
+  for(let i = 0; i < particleMeshes.length; i++) {
+    for(let e = 0; e < amountOfParticlesInTile; e++) {
 
       particleMeshes[i].getMatrixAt(e, dummyMatrix);
       dummyMatrix.decompose(
@@ -237,7 +356,7 @@ const updateParticles = () => {
     particleMeshes[i].instanceMatrix.needsUpdate = true;
   }
 
-}
+};
 
 const render = () => {
 
