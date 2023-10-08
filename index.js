@@ -13,6 +13,7 @@ let
   raycaster,
   lastTimestamp,
   controls,
+  char,
   centerTile,
   tileWidth,
   amountOfParticlesInTile,
@@ -25,6 +26,8 @@ let
   prevActivePathPos,
   activePathPos,
   pathPositions,
+  currentPos,
+  currentLookAt,
   sceneRendered;
 
 const setScene = async () => {
@@ -53,8 +56,11 @@ const setScene = async () => {
   lastTimestamp           = 0;
   pathPositions           = [];
   sceneRendered           = false;
+  currentPos              = new THREE.Vector3();
+  currentLookAt           = new THREE.Vector3();
 
   // setControls();
+  createChar();
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
@@ -65,10 +71,6 @@ const setScene = async () => {
 
   sceneRendered = true;
 
-  // setInterval(() => {
-  //   camUpdate();
-  // }, 100);
-
 };
 
 const setControls = () => {
@@ -77,6 +79,16 @@ const setControls = () => {
   controls.enableDamping  = true;
 
 };
+
+const createChar = () => {
+
+  const geo = new THREE.CapsuleGeometry(1, 1, 4, 8); 
+  const mat = new THREE.MeshBasicMaterial({color: 0x000000}); 
+  char      = new THREE.Mesh(geo, mat); 
+  char.position.set(0, 40, 0);
+  scene.add(char);
+
+}
 
 const setTileValues = () => {
 
@@ -374,24 +386,50 @@ const listenTo = () => {
   window.addEventListener('resize', resize.bind(this));
 };
 
+const camUpdate = () => {
+
+  const calcIdealOffset = () => {
+    const idealOffset = new THREE.Vector3(0, 3, 7);
+    idealOffset.applyQuaternion(char.quaternion);
+    idealOffset.add(char.position);
+    return idealOffset;
+  }
+  
+  const calcIdealLookat = () => {
+    const idealLookat = new THREE.Vector3(0, 0.5, 10);
+    idealLookat.applyQuaternion(char.quaternion);
+    idealLookat.add(char.position);
+    return idealLookat;
+  }
+
+  const idealOffset = calcIdealOffset();
+  const idealLookat = calcIdealLookat(); 
+
+  currentPos.copy(idealOffset);
+  currentLookAt.copy(idealLookat);
+
+  camera.position.lerp(currentPos, 0.14);
+  camera.lookAt(currentLookAt);
+
+}
+
 const determineMoreTerrain = () => {
 
-  raycaster.set(camera.position, new THREE.Vector3(0, -1, 0));
+  raycaster.set(char.position, new THREE.Vector3(0, -1, 0));
   const intersects = raycaster.intersectObjects(particleMeshes);
 
-  console.log(intersects);
-
+  if(!intersects.length) return;
   if(activeTile !== intersects[0].object.name) createSurroundingTiles(intersects[0].object.name);
 
 };
 
-const camUpdate = () => {
+const charUpdate = () => {
 
-  camera.position.set(pathPositions[0].x, pathPositions[0].y, pathPositions[0].z);
-  camera.lookAt(pathPositions[1].x, pathPositions[1].y, pathPositions[1].z);
+  char.position.set(pathPositions[0].x, pathPositions[0].y, pathPositions[0].z);
   pathPositions.shift();
   createPath(1);
 
+  camUpdate();
   determineMoreTerrain();
 
 };
@@ -424,9 +462,9 @@ const render = (now) => {
 
   if(sceneRendered) updateParticles();
 
-  if(now - lastTimestamp >= 1000) {
+  if(now - lastTimestamp >= 40) {
     lastTimestamp = now;
-    camUpdate();
+    charUpdate();
   }
 
   // controls.update();
