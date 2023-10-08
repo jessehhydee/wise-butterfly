@@ -68,7 +68,7 @@ const setControls = () => {
 
 const setTileValues = () => {
 
-  const centerTileFromTo = 20;
+  const centerTileFromTo = 30;
 
   centerTile = {
     xFrom:  -centerTileFromTo,
@@ -183,7 +183,6 @@ const createTile = () => {
 
       const pos = tileToPosition(i, height, e);
       particleManipulator.position.set(pos.x, pos.y, pos.z);
-      // particleManipulator.position.set(pos.x, pos.y < 2 ? 2 : pos.y, pos.z);
 
       particleManipulator.updateMatrix();
       particle.setMatrixAt(particleCounter, particleManipulator.matrix);
@@ -230,7 +229,7 @@ const createPath = () => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 3)
+        if(activePathPos.distanceTo(particleManipulator.position) < 5)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
             surroundingPositions.push(JSON.stringify(particleManipulator.position));
   
@@ -241,72 +240,56 @@ const createPath = () => {
 
   }
   
-  // https://stackoverflow.com/questions/60735673/finding-angle-of-rotation-from-origin-to-a-vector-in-3d-space-threejs
-  const getAngle = (from, to) => {
+  const getDir = (from, to) => {
 
-    const vecFrom = new THREE.Vector3(from.x, from.y, from.z);
-    const vecTo = new THREE.Vector3(to.x, to.y, to.z);
+    if(!from) return -1;
 
-    const fromX = new THREE.Vector3(vecFrom.x, 0, 0);
-    const toXZ  = new THREE.Vector3(vecTo.x, 0, vecTo.z);
-  
-    return Math.acos(fromX.dot(toXZ.normalize()));
+    const relativePos = new THREE.Vector3();
+    relativePos.subVectors(to, from);
+
+    return new THREE.Vector3(0, 0, 1).dot(relativePos);
 
   }
 
-  const getDirectionForward = (from, to) => {
+  const getAvailalbePositions = (positions, dirForward) => {
 
-    const dir = new THREE.Vector3();
-
-    if(!from) return dir;
-
-    // dir.subVectors(to, from).normalize();
-    // return dir;
-    // return from.angleTo(to);
-    return getAngle(from, to);
-
-  }
-
-  const getLowestPoint = (positions, dirForward) => {
-
-    console.log(positions.length);
-    console.log('e', dirForward);
-    // activePathPos.applyAxisAngle(dirForward, 270);
-    console.log('greaterThen:', dirForward - (Math.PI / 2));
-    console.log('lessThen:', dirForward + (Math.PI / 2));
-
-    let lowestPosition;
+    const availablePositions = [];
 
     for(let i = 0; i < positions.length; i++) {
 
-      let pos = JSON.parse(positions[i]);
-      pos     = new THREE.Vector3(pos.x, pos.y, pos.z);
-      const dir = getAngle(activePathPos, pos);
-      console.log('dir:', dir);
-      // if(dir > dirForward - (Math.PI / 3) && dir < dirForward + (Math.PI / 3))
-      //   console.log('eee');
-        
-      if(!lowestPosition || pos.y < lowestPosition.y) 
-        lowestPosition = pos;
+      let pos   = JSON.parse(positions[i]);
+      pos       = new THREE.Vector3(pos.x, pos.y, pos.z);
+      const dir = getDir(activePathPos, pos);
+
+      // Only accepts positions that are situated in front of the path.
+      // Keeps path going in a similar direction.
+      if((dir > dirForward - (Math.PI / 2.5) && dir < dirForward + (Math.PI / 2.5)) || dirForward === -1)
+        availablePositions.push(pos);
 
     }
 
-    return new THREE.Vector3(lowestPosition.x, lowestPosition.y, lowestPosition.z);
+    // Sorting from lowest to highest based on the y axis.
+    // [0] will always be the lowaest of the collection.
+    availablePositions.sort((a, b) => a.y - b.y);
+
+    return availablePositions;
 
   };
 
-  const pathSize      = 25;
+  const pathSize      = 30;
   const pathParticle  = setParticleMesh();
 
   for(let i = 0; i < pathSize; i++) {
 
     const surroundingPositions  = getSurroundingPositions();
-    const dir                   = getDirectionForward(prevActivePathPos, activePathPos);
-    const pos                   = getLowestPoint(surroundingPositions, dir);
+    const dir                   = getDir(prevActivePathPos, activePathPos);
+    const positions             = getAvailalbePositions(surroundingPositions, dir);
     prevActivePathPos           = activePathPos;
-    activePathPos               = pos;
 
-    particleManipulator.position.set(pos.x, pos.y + 5, pos.z);
+    if(JSON.stringify(activePathPos) !== JSON.stringify(positions[0])) activePathPos = positions[0];
+    else activePathPos = positions[1];
+
+    particleManipulator.position.set(activePathPos.x, activePathPos.y + 5, activePathPos.z);
     particleManipulator.updateMatrix();
     pathParticle.setMatrixAt(i, particleManipulator.matrix);
     
