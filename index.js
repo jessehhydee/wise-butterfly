@@ -10,6 +10,8 @@ let
   scene,
   camera,
   renderer,
+  raycaster,
+  lastTimestamp,
   controls,
   centerTile,
   tileWidth,
@@ -19,8 +21,10 @@ let
   particleManipulator,
   dummyMatrix,
   particleMeshes,
+  activeTile,
   prevActivePathPos,
   activePathPos,
+  pathPositions,
   sceneRendered;
 
 const setScene = async () => {
@@ -44,18 +48,26 @@ const setScene = async () => {
 
   scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 1));
 
-  sceneRendered = false;
+  raycaster               = new THREE.Raycaster();
+  raycaster.firstHitOnly  = true;
+  lastTimestamp           = 0;
+  pathPositions           = [];
+  sceneRendered           = false;
 
-  setControls();
+  // setControls();
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
-  createPath();
+  createPath(10);
   resize();
   listenTo();
   render();
 
   sceneRendered = true;
+
+  // setInterval(() => {
+  //   camUpdate();
+  // }, 100);
 
 };
 
@@ -116,6 +128,10 @@ const createSurroundingTiles = (newActiveTile) => {
 
   setCenterTile(parsedCoords);
 
+  cleanUpTiles();
+
+  activeTile = newActiveTile;
+
 };
 
 const tileYNegative = () => {
@@ -152,24 +168,32 @@ const tileXPositive = () => {
 
 const createTile = () => {
 
+  const tileName = JSON.stringify({
+    x: centerTile.xFrom,
+    y: centerTile.yFrom
+  });
+
+  if(particleMeshes.some(el => el.name === tileName)) return; // Returns if tile already exists
+
   const tileToPosition = (tileX, height, tileY) => {
     return new THREE.Vector3((tileX + (tileY % 2) * 0.5) * 1.68, height, tileY * 1.535);
   };
 
-  const setParticleMesh = () => {
+  const setParticleMesh = (tileName) => {
 
-    const geo   = new THREE.CircleGeometry(0.5, 5);
+    const geo   = new THREE.CircleGeometry(0.5, 4);
     const mat   = new THREE.MeshStandardMaterial({
       color:  0x31759D, 
       side:   THREE.DoubleSide
     });
     const mesh  = new THREE.InstancedMesh(geo, mat, amountOfParticlesInTile);
+    mesh.name   = tileName;
   
     return mesh;
 
   };
 
-  const particle        = setParticleMesh();
+  const particle        = setParticleMesh(tileName);
   let   particleCounter = 0;
   
   for(let i = centerTile.xFrom; i <= centerTile.xTo; i++) {
@@ -200,11 +224,41 @@ const createTile = () => {
 
 };
 
-const createPath = () => {
+const cleanUpTiles = () => {
+
+  for(let i = particleMeshes.length - 1; i >= 0; i--) {
+
+    let tileCoords  = JSON.parse(particleMeshes[i].name);
+    tileCoords      = {
+      xFrom:  tileCoords.x,
+      xTo:    tileCoords.x + tileWidth,
+      yFrom:  tileCoords.y,
+      yTo:    tileCoords.y + tileWidth
+    }
+
+    if(
+      tileCoords.xFrom < centerTile.xFrom - tileWidth ||
+      tileCoords.xTo > centerTile.xTo + tileWidth ||
+      tileCoords.yFrom < centerTile.yFrom - tileWidth ||
+      tileCoords.yTo > centerTile.yTo + tileWidth
+    ) {
+
+      const tile = scene.getObjectsByProperty('name', particleMeshes[i].name);
+      for(let o = 0; o < tile.length; o++) cleanUp(tile[o]);
+
+      particleMeshes.splice(i, 1);
+
+    }
+
+  }
+
+}
+
+const createPath = (pathSegments) => {
 
   const setParticleMesh = () => {
 
-    const geo   = new THREE.CircleGeometry(1.2, 5);
+    const geo   = new THREE.CircleGeometry(1.2, 4);
     const mat   = new THREE.MeshStandardMaterial({
       color:  0xffffff, 
       side:   THREE.DoubleSide
@@ -276,10 +330,10 @@ const createPath = () => {
 
   };
 
-  const pathSize      = 30;
-  const pathParticle  = setParticleMesh();
+  // const pathSize      = 30;
+  // const pathParticle  = setParticleMesh();
 
-  for(let i = 0; i < pathSize; i++) {
+  for(let i = 0; i < pathSegments; i++) {
 
     const surroundingPositions  = getSurroundingPositions();
     const dir                   = getDir(prevActivePathPos, activePathPos);
@@ -289,13 +343,16 @@ const createPath = () => {
     if(JSON.stringify(activePathPos) !== JSON.stringify(positions[0])) activePathPos = positions[0];
     else activePathPos = positions[1];
 
-    particleManipulator.position.set(activePathPos.x, activePathPos.y + 5, activePathPos.z);
-    particleManipulator.updateMatrix();
-    pathParticle.setMatrixAt(i, particleManipulator.matrix);
+    const elevatedActivePathPos = new THREE.Vector3(activePathPos.x, activePathPos.y + 5, activePathPos.z);
+    pathPositions.push(elevatedActivePathPos);
+
+    // particleManipulator.position.set(elevatedActivePathPos.x, elevatedActivePathPos.y, elevatedActivePathPos.z);
+    // particleManipulator.updateMatrix();
+    // pathParticle.setMatrixAt(i, particleManipulator.matrix);
     
   }
 
-  scene.add(pathParticle);
+  // scene.add(pathParticle);
 
 };
 
@@ -315,6 +372,28 @@ const resize = () => {
 
 const listenTo = () => {
   window.addEventListener('resize', resize.bind(this));
+};
+
+const determineMoreTerrain = () => {
+
+  raycaster.set(camera.position, new THREE.Vector3(0, -1, 0));
+  const intersects = raycaster.intersectObjects(particleMeshes);
+
+  console.log(intersects);
+
+  if(activeTile !== intersects[0].object.name) createSurroundingTiles(intersects[0].object.name);
+
+};
+
+const camUpdate = () => {
+
+  camera.position.set(pathPositions[0].x, pathPositions[0].y, pathPositions[0].z);
+  camera.lookAt(pathPositions[1].x, pathPositions[1].y, pathPositions[1].z);
+  pathPositions.shift();
+  createPath(1);
+
+  determineMoreTerrain();
+
 };
 
 const updateParticles = () => {
@@ -341,13 +420,38 @@ const updateParticles = () => {
 
 };
 
-const render = () => {
+const render = (now) => {
 
   if(sceneRendered) updateParticles();
 
-  controls.update();
+  if(now - lastTimestamp >= 1000) {
+    lastTimestamp = now;
+    camUpdate();
+  }
+
+  // controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(render.bind(this));
+
+};
+
+const cleanUp = (obj) => {
+
+  if(obj.geometry && obj.material) {
+    obj.geometry.dispose();
+    obj.material.dispose();
+  }
+  else {
+    obj.traverse(el => {
+      if(el.isMesh) {
+        el.geometry.dispose();
+        el.material.dispose();
+      }
+    });
+  }
+
+  scene.remove(obj);
+  renderer.renderLists.dispose();
 
 };
 
