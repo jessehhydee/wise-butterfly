@@ -40,7 +40,7 @@ const setScene = async () => {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 1, 400);
-  camera.position.set(0, 100, 180);
+  camera.position.set(0, 30, 20);
   
   renderer = new THREE.WebGLRenderer({
     canvas:     canvas,
@@ -408,7 +408,7 @@ const camUpdate = () => {
   currentPos.copy(idealOffset);
   currentLookAt.copy(idealLookat);
 
-  camera.position.lerp(currentPos, 0.14);
+  camera.position.lerp(currentPos, 0.09);
   camera.lookAt(currentLookAt);
 
 }
@@ -462,7 +462,7 @@ const render = (now) => {
 
   if(sceneRendered) updateParticles();
 
-  if(now - lastTimestamp >= 40) {
+  if(now - lastTimestamp >= 80) {
     lastTimestamp = now;
     charUpdate();
   }
