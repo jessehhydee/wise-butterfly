@@ -281,6 +281,23 @@ const createPath = (pathSegments) => {
 
   };
 
+  const createCurveWithTube = () => {
+
+    const curve = new THREE.CatmullRomCurve3( [
+      new THREE.Vector3( -10, 0, 10 ),
+      new THREE.Vector3( -5, 5, 5 ),
+      new THREE.Vector3( 0, 0, 0 ),
+      new THREE.Vector3( 5, -5, 5 ),
+      new THREE.Vector3( 10, 0, 10 )
+    ] );
+  
+    const geo = new THREE.TubeGeometry(curve, 150, 2, 2, false);
+    const mat = new THREE.MeshBasicMaterial({color: 0x00ff00});
+    mesh = new THREE.Mesh(geo, mat);
+    scene.add(mesh);
+  
+  }
+
   const getSurroundingPositions = () => {
 
     const surroundingPositions = [];
