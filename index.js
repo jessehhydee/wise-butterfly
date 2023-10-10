@@ -26,6 +26,9 @@ let
   prevActivePathPos,
   activePathPos,
   pathPositions,
+  drawPathCounter,
+  pathMaterial,
+  pathMesh,
   currentPos,
   currentLookAt,
   sceneRendered;
@@ -55,6 +58,8 @@ const setScene = async () => {
   raycaster.firstHitOnly  = true;
   lastTimestamp           = 0;
   pathPositions           = [];
+  drawPathCounter         = 0;
+  pathMaterial            = new THREE.MeshStandardMaterial({color: 0x31759D, transparent: true, opacity: 0.7});
   sceneRendered           = false;
   currentPos              = new THREE.Vector3();
   currentLookAt           = new THREE.Vector3();
@@ -64,7 +69,7 @@ const setScene = async () => {
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
-  createPath(10);
+  createPath(20, true);
   resize();
   listenTo();
   render();
@@ -92,7 +97,7 @@ const createChar = () => {
 
 const setTileValues = () => {
 
-  const centerTileFromTo = 30;
+  const centerTileFromTo = 40;
 
   centerTile = {
     xFrom:  -centerTileFromTo,
@@ -266,37 +271,7 @@ const cleanUpTiles = () => {
 
 }
 
-const createPath = (pathSegments) => {
-
-  const setParticleMesh = () => {
-
-    const geo   = new THREE.CircleGeometry(1.2, 4);
-    const mat   = new THREE.MeshStandardMaterial({
-      color:  0xffffff, 
-      side:   THREE.DoubleSide
-    });
-    const mesh  = new THREE.InstancedMesh(geo, mat, pathSize);
-  
-    return mesh;
-
-  };
-
-  const createCurveWithTube = () => {
-
-    const curve = new THREE.CatmullRomCurve3( [
-      new THREE.Vector3( -10, 0, 10 ),
-      new THREE.Vector3( -5, 5, 5 ),
-      new THREE.Vector3( 0, 0, 0 ),
-      new THREE.Vector3( 5, -5, 5 ),
-      new THREE.Vector3( 10, 0, 10 )
-    ] );
-  
-    const geo = new THREE.TubeGeometry(curve, 150, 2, 2, false);
-    const mat = new THREE.MeshBasicMaterial({color: 0x00ff00});
-    mesh = new THREE.Mesh(geo, mat);
-    scene.add(mesh);
-  
-  }
+const createPath = (pathSegments, drawPathAhead) => {
 
   const getSurroundingPositions = () => {
 
@@ -312,7 +287,7 @@ const createPath = (pathSegments) => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 5)
+        if(activePathPos.distanceTo(particleManipulator.position) < 10)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
             surroundingPositions.push(JSON.stringify(particleManipulator.position));
   
@@ -359,9 +334,6 @@ const createPath = (pathSegments) => {
 
   };
 
-  // const pathSize      = 30;
-  // const pathParticle  = setParticleMesh();
-
   for(let i = 0; i < pathSegments; i++) {
 
     const surroundingPositions  = getSurroundingPositions();
@@ -374,16 +346,23 @@ const createPath = (pathSegments) => {
 
     const elevatedActivePathPos = new THREE.Vector3(activePathPos.x, activePathPos.y + 5, activePathPos.z);
     pathPositions.push(elevatedActivePathPos);
-
-    // particleManipulator.position.set(elevatedActivePathPos.x, elevatedActivePathPos.y, elevatedActivePathPos.z);
-    // particleManipulator.updateMatrix();
-    // pathParticle.setMatrixAt(i, particleManipulator.matrix);
     
   }
 
-  // scene.add(pathParticle);
+  if(drawPathAhead) drawPath();
 
 };
+
+const drawPath = () => {
+
+  if(pathMesh) cleanUp(pathMesh);
+
+  const curve = new THREE.CatmullRomCurve3(pathPositions);
+  const geo   = new THREE.TubeGeometry(curve, 150, 2, 2, false);
+  pathMesh    = new THREE.Mesh(geo, pathMaterial);
+  scene.add(pathMesh);
+
+}
 
 const resize = () => {
 
@@ -406,7 +385,7 @@ const listenTo = () => {
 const camUpdate = () => {
 
   const calcIdealOffset = () => {
-    const idealOffset = new THREE.Vector3(0, 3, 7);
+    const idealOffset = new THREE.Vector3(0, 7, 7);
     idealOffset.applyQuaternion(char.quaternion);
     idealOffset.add(char.position);
     return idealOffset;
@@ -442,9 +421,13 @@ const determineMoreTerrain = () => {
 
 const charUpdate = () => {
 
-  char.position.set(pathPositions[0].x, pathPositions[0].y, pathPositions[0].z);
+  // Setting char at the 11th element in pathPositions so that cam does not see the clean up of the path behind the char
+  char.position.set(pathPositions[10].x, pathPositions[10].y, pathPositions[10].z);
   pathPositions.shift();
-  createPath(1);
+
+  drawPathCounter++;
+  if(drawPathCounter % 10 === 0) createPath(1, true);
+  else createPath(1, false);
 
   camUpdate();
   determineMoreTerrain();
