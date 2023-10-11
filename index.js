@@ -52,7 +52,7 @@ const setScene = async () => {
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 1));
+  scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 2));
 
   raycaster               = new THREE.Raycaster();
   raycaster.firstHitOnly  = true;
@@ -198,7 +198,7 @@ const createTile = () => {
 
   const setParticleMesh = (tileName) => {
 
-    const geo   = new THREE.CircleGeometry(0.5, 4);
+    const geo   = new THREE.CircleGeometry(0.3, 4);
     const mat   = new THREE.MeshStandardMaterial({
       color:  0x31759D, 
       side:   THREE.DoubleSide
@@ -212,7 +212,7 @@ const createTile = () => {
 
   const particle        = setParticleMesh(tileName);
   let   particleCounter = 0;
-  
+   
   for(let i = centerTile.xFrom; i <= centerTile.xTo; i++) {
     for(let e = centerTile.yFrom; e <= centerTile.yTo; e++) {
 
@@ -227,6 +227,12 @@ const createTile = () => {
 
       particleManipulator.updateMatrix();
       particle.setMatrixAt(particleCounter, particleManipulator.matrix);
+
+      if(height > 20) particle.setColorAt(particleCounter, new THREE.Color(0xd5ebf7));
+      else if(height > 15) particle.setColorAt(particleCounter, new THREE.Color(0xa8d4ed));
+      else if(height > 10) particle.setColorAt(particleCounter, new THREE.Color(0x82bde0));
+      else if(height > 5) particle.setColorAt(particleCounter, new THREE.Color(0x599bc2));
+      else if(height > 0) particle.setColorAt(particleCounter, new THREE.Color(0x31759D));
 
       particleCounter++;
 
@@ -358,7 +364,7 @@ const drawPath = () => {
   if(pathMesh) cleanUp(pathMesh);
 
   const curve = new THREE.CatmullRomCurve3(pathPositions);
-  const geo   = new THREE.TubeGeometry(curve, 150, 2, 2, false);
+  const geo   = new THREE.TubeGeometry(curve, 40, 1, 2, false);
   pathMesh    = new THREE.Mesh(geo, pathMaterial);
   scene.add(pathMesh);
 
@@ -385,14 +391,14 @@ const listenTo = () => {
 const camUpdate = () => {
 
   const calcIdealOffset = () => {
-    const idealOffset = new THREE.Vector3(0, 7, 7);
+    const idealOffset = new THREE.Vector3(0, 15, -7);
     idealOffset.applyQuaternion(char.quaternion);
     idealOffset.add(char.position);
     return idealOffset;
   }
   
   const calcIdealLookat = () => {
-    const idealLookat = new THREE.Vector3(0, 0.5, 10);
+    const idealLookat = new THREE.Vector3(0, 3.5, 10);
     idealLookat.applyQuaternion(char.quaternion);
     idealLookat.add(char.position);
     return idealLookat;
