@@ -19,6 +19,7 @@ let
   amountOfParticlesInTile,
   simplex,
   maxHeight,
+  terrianColorRainbow,
   particleManipulator,
   dummyMatrix,
   particleMeshes,
@@ -109,6 +110,13 @@ const setTileValues = () => {
   amountOfParticlesInTile = Math.pow((centerTile.xTo + 1) - centerTile.xFrom, 2); // +1 accounts for 0
   simplex                 = new SimplexNoise();
   maxHeight               = 30;
+  terrianColorRainbow     = [ // Brightest (highest) -> dullest (lowest)
+    new THREE.Color(0xd5ebf7),
+    new THREE.Color(0xa8d4ed),
+    new THREE.Color(0x82bde0),
+    new THREE.Color(0x599bc2),
+    new THREE.Color(0x31759D)
+  ]
   particleManipulator     = new THREE.Object3D();
   dummyMatrix             = new THREE.Matrix4();
   particleMeshes          = [];
@@ -228,11 +236,11 @@ const createTile = () => {
       particleManipulator.updateMatrix();
       particle.setMatrixAt(particleCounter, particleManipulator.matrix);
 
-      if(height > 20) particle.setColorAt(particleCounter, new THREE.Color(0xd5ebf7));
-      else if(height > 15) particle.setColorAt(particleCounter, new THREE.Color(0xa8d4ed));
-      else if(height > 10) particle.setColorAt(particleCounter, new THREE.Color(0x82bde0));
-      else if(height > 5) particle.setColorAt(particleCounter, new THREE.Color(0x599bc2));
-      else if(height > 0) particle.setColorAt(particleCounter, new THREE.Color(0x31759D));
+      if(height > 20) particle.setColorAt(particleCounter, terrianColorRainbow[0]);
+      else if(height > 15) particle.setColorAt(particleCounter, terrianColorRainbow[1]);
+      else if(height > 10) particle.setColorAt(particleCounter, terrianColorRainbow[2]);
+      else if(height > 5) particle.setColorAt(particleCounter, terrianColorRainbow[3]);
+      else if(height > 0) particle.setColorAt(particleCounter, terrianColorRainbow[4]);
 
       particleCounter++;
 
