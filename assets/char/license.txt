@@ -1,0 +1,11 @@
+Model Information:
+* title:	Animated Butterfly
+* source:	https://sketchfab.com/3d-models/animated-butterfly-d4fbcbaab845402999f30c5aa75851e6
+* author:	Artistic_side (https://sketchfab.com/leorehman333)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Animated Butterfly" (https://sketchfab.com/3d-models/animated-butterfly-d4fbcbaab845402999f30c5aa75851e6) by Artistic_side (https://sketchfab.com/leorehman333) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

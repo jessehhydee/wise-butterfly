@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import SimplexNoise from 'https://cdn.skypack.dev/simplex-noise@3.0.0';
 
@@ -14,6 +15,8 @@ let
   lastTimestamp,
   controls,
   char,
+  mixer,
+  clock,
   centerTile,
   tileWidth,
   amountOfParticlesInTile,
@@ -44,7 +47,7 @@ const setScene = async () => {
   scene = new THREE.Scene();
 
   camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 1, 400);
-  camera.position.set(0, 30, 20);
+  camera.position.set(0, 60, 80);
   
   renderer = new THREE.WebGLRenderer({
     canvas:     canvas,
@@ -52,6 +55,7 @@ const setScene = async () => {
     alpha:      true
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  clock = new THREE.Clock()
 
   scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 2));
 
@@ -66,7 +70,7 @@ const setScene = async () => {
   currentLookAt           = new THREE.Vector3();
 
   // setControls();
-  createChar();
+  await createChar();
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
@@ -86,12 +90,24 @@ const setControls = () => {
 
 };
 
-const createChar = () => {
+const createChar = async () => {
 
-  const geo = new THREE.CapsuleGeometry(1, 1, 4, 8); 
-  const mat = new THREE.MeshBasicMaterial({color: 0x000000}); 
-  char      = new THREE.Mesh(geo, mat); 
-  char.position.set(0, 40, 0);
+  const gltfLoader  = new GLTFLoader();
+  const model       = await gltfLoader.loadAsync('assets/char/scene.gltf');
+  char              = model.scene;
+
+  char.position.set(0, 30, 0);
+  char.scale.set(1.8, 1.8, 1.8);
+
+  mixer = new THREE.AnimationMixer(char);
+  mixer
+    .clipAction(model.animations[0])
+    .setEffectiveTimeScale(2)
+    .setEffectiveWeight(1)
+    .setLoop(THREE.LoopRepeat)
+    .fadeIn(1)
+    .play();
+
   scene.add(char);
 
 }
@@ -301,7 +317,7 @@ const createPath = (pathSegments, drawPathAhead) => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 4)
+        if(activePathPos.distanceTo(particleManipulator.position) < 8)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
             surroundingPositions.push(JSON.stringify(particleManipulator.position));
   
@@ -371,8 +387,8 @@ const drawPath = () => {
 
   if(pathMesh) cleanUp(pathMesh);
 
-  const curve = new THREE.CatmullRomCurve3(pathPositions.slice(0, 10));
-  const geo   = new THREE.TubeGeometry(curve, 40, 0.5, 2, false);
+  const curve = new THREE.CatmullRomCurve3(pathPositions.slice(0, 9));
+  const geo   = new THREE.TubeGeometry(curve, 40, 0.3, 2, false);
   pathMesh    = new THREE.Mesh(geo, pathMaterial);
   scene.add(pathMesh);
 
@@ -418,7 +434,7 @@ const camUpdate = () => {
   currentPos.copy(idealOffset);
   currentLookAt.copy(idealLookat);
 
-  camera.position.lerp(currentPos, 0.09);
+  camera.position.lerp(currentPos, 0.03);
   camera.lookAt(currentLookAt);
 
 }
@@ -475,9 +491,12 @@ const updateParticles = () => {
 
 const render = (now) => {
 
-  if(sceneRendered) updateParticles();
+  if(sceneRendered) {
+    mixer.update(clock.getDelta());
+    updateParticles();
+  }
 
-  if(now - lastTimestamp >= 50) {
+  if(now - lastTimestamp >= 100) {
     lastTimestamp = now;
     charUpdate();
   }
