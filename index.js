@@ -301,7 +301,7 @@ const createPath = (pathSegments, drawPathAhead) => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 10)
+        if(activePathPos.distanceTo(particleManipulator.position) < 4)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
             surroundingPositions.push(JSON.stringify(particleManipulator.position));
   
@@ -371,8 +371,8 @@ const drawPath = () => {
 
   if(pathMesh) cleanUp(pathMesh);
 
-  const curve = new THREE.CatmullRomCurve3(pathPositions);
-  const geo   = new THREE.TubeGeometry(curve, 40, 1, 2, false);
+  const curve = new THREE.CatmullRomCurve3(pathPositions.slice(0, 10));
+  const geo   = new THREE.TubeGeometry(curve, 40, 0.5, 2, false);
   pathMesh    = new THREE.Mesh(geo, pathMaterial);
   scene.add(pathMesh);
 
@@ -399,14 +399,14 @@ const listenTo = () => {
 const camUpdate = () => {
 
   const calcIdealOffset = () => {
-    const idealOffset = new THREE.Vector3(0, 15, -7);
+    const idealOffset = new THREE.Vector3(0, 20, 15);
     idealOffset.applyQuaternion(char.quaternion);
     idealOffset.add(char.position);
     return idealOffset;
   }
   
   const calcIdealLookat = () => {
-    const idealLookat = new THREE.Vector3(0, 3.5, 10);
+    const idealLookat = new THREE.Vector3(0, 1.5, -10);
     idealLookat.applyQuaternion(char.quaternion);
     idealLookat.add(char.position);
     return idealLookat;
@@ -440,8 +440,9 @@ const charUpdate = () => {
   pathPositions.shift();
 
   drawPathCounter++;
-  if(drawPathCounter % 10 === 0) createPath(1, true);
-  else createPath(1, false);
+  // if(drawPathCounter % 10 === 0) createPath(1, true);
+  // else createPath(1, false);
+  createPath(1, true);
 
   camUpdate();
   determineMoreTerrain();
@@ -476,7 +477,7 @@ const render = (now) => {
 
   if(sceneRendered) updateParticles();
 
-  if(now - lastTimestamp >= 80) {
+  if(now - lastTimestamp >= 50) {
     lastTimestamp = now;
     charUpdate();
   }
