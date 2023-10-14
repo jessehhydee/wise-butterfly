@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import SimplexNoise from 'https://cdn.skypack.dev/simplex-noise@3.0.0';
 
 const container = document.querySelector('.container');
@@ -13,7 +12,6 @@ let
   renderer,
   raycaster,
   lastTimestamp,
-  controls,
   char,
   mixer,
   clock,
@@ -30,11 +28,11 @@ let
   prevActivePathPos,
   activePathPos,
   pathPositions,
-  drawPathCounter,
-  pathMaterial,
-  pathMesh,
+  pathCurve,
+  pathCurveCounter,
   currentPos,
   currentLookAt,
+  currentLookAtLerpObj,
   sceneRendered;
 
 const setScene = async () => {
@@ -63,30 +61,22 @@ const setScene = async () => {
   raycaster.firstHitOnly  = true;
   lastTimestamp           = 0;
   pathPositions           = [];
-  drawPathCounter         = 0;
-  pathMaterial            = new THREE.MeshStandardMaterial({color: 0x31759D, transparent: true, opacity: 0.7});
+  pathCurveCounter        = 30;
   sceneRendered           = false;
   currentPos              = new THREE.Vector3();
   currentLookAt           = new THREE.Vector3();
+  currentLookAtLerpObj    = new THREE.Object3D();
 
-  // setControls();
   await createChar();
   setTileValues();
   createTile();
   createSurroundingTiles(`{"x":${centerTile.xFrom},"y":${centerTile.yFrom}}`);
-  createPath(20, true);
+  createPath(5);
   resize();
   listenTo();
   render();
 
   sceneRendered = true;
-
-};
-
-const setControls = () => {
-
-  controls                = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping  = true;
 
 };
 
@@ -102,7 +92,7 @@ const createChar = async () => {
   mixer = new THREE.AnimationMixer(char);
   mixer
     .clipAction(model.animations[0])
-    .setEffectiveTimeScale(2)
+    .setEffectiveTimeScale(1.4)
     .setEffectiveWeight(1)
     .setLoop(THREE.LoopRepeat)
     .fadeIn(1)
@@ -301,7 +291,7 @@ const cleanUpTiles = () => {
 
 }
 
-const createPath = (pathSegments, drawPathAhead) => {
+const createPath = (pathSegments) => {
 
   const getSurroundingPositions = () => {
 
@@ -317,9 +307,12 @@ const createPath = (pathSegments, drawPathAhead) => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 8)
+        if(activePathPos.distanceTo(particleManipulator.position) < 15)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
-            surroundingPositions.push(JSON.stringify(particleManipulator.position));
+            surroundingPositions.push({
+              pos:      JSON.stringify(particleManipulator.position),
+              tileName: particleMeshes[i].name
+            });
   
       }
     }
@@ -345,22 +338,25 @@ const createPath = (pathSegments, drawPathAhead) => {
 
     for(let i = 0; i < positions.length; i++) {
 
-      let pos   = JSON.parse(positions[i]);
+      let pos   = JSON.parse(positions[i].pos);
       pos       = new THREE.Vector3(pos.x, pos.y, pos.z);
       const dir = getDir(activePathPos, pos);
 
       // Only accepts positions that are situated in front of the path.
       // Keeps path going in a similar direction.
       if((dir > dirForward - (Math.PI / 2.5) && dir < dirForward + (Math.PI / 2.5)) || dirForward === -1)
-        availablePositions.push(pos);
+        availablePositions.push({
+          pos:      pos,
+          tileName: positions[i].tileName
+        });
 
     }
 
     // Sorting from lowest to highest based on the y axis.
     // [0] will always be the lowaest of the collection.
-    availablePositions.sort((a, b) => a.y - b.y);
+    availablePositions.sort((a, b) => a.pos.y - b.pos.y);
 
-    return availablePositions;
+    return availablePositions.slice(0, 2);
 
   };
 
@@ -371,28 +367,27 @@ const createPath = (pathSegments, drawPathAhead) => {
     const positions             = getAvailalbePositions(surroundingPositions, dir);
     prevActivePathPos           = activePathPos;
 
-    if(JSON.stringify(activePathPos) !== JSON.stringify(positions[0])) activePathPos = positions[0];
-    else activePathPos = positions[1];
+    let tileName;
+    if(JSON.stringify(activePathPos) !== JSON.stringify(positions[0])) {
+      activePathPos = positions[0].pos;
+      tileName      = positions[0].tileName;
+    }
+    else {
+      activePathPos = positions[1].pos;
+      tileName      = positions[1].tileName;
+    }
 
     const elevatedActivePathPos = new THREE.Vector3(activePathPos.x, activePathPos.y + 5, activePathPos.z);
     pathPositions.push(elevatedActivePathPos);
+
+    if(activeTile !== tileName) createSurroundingTiles(tileName);
     
   }
 
-  if(drawPathAhead) drawPath();
+  const curve = new THREE.CatmullRomCurve3(pathPositions, false, 'centripetal', 0.9);
+  pathCurve   = curve.getPoints(50);
 
 };
-
-const drawPath = () => {
-
-  if(pathMesh) cleanUp(pathMesh);
-
-  const curve = new THREE.CatmullRomCurve3(pathPositions.slice(0, 9));
-  const geo   = new THREE.TubeGeometry(curve, 40, 0.3, 2, false);
-  pathMesh    = new THREE.Mesh(geo, pathMaterial);
-  scene.add(pathMesh);
-
-}
 
 const resize = () => {
 
@@ -415,14 +410,14 @@ const listenTo = () => {
 const camUpdate = () => {
 
   const calcIdealOffset = () => {
-    const idealOffset = new THREE.Vector3(0, 20, 15);
+    const idealOffset = new THREE.Vector3(0, 20, -45);
     idealOffset.applyQuaternion(char.quaternion);
     idealOffset.add(char.position);
     return idealOffset;
   }
   
   const calcIdealLookat = () => {
-    const idealLookat = new THREE.Vector3(0, 1.5, -10);
+    const idealLookat = new THREE.Vector3(0, 10, 15);
     idealLookat.applyQuaternion(char.quaternion);
     idealLookat.add(char.position);
     return idealLookat;
@@ -434,34 +429,33 @@ const camUpdate = () => {
   currentPos.copy(idealOffset);
   currentLookAt.copy(idealLookat);
 
-  camera.position.lerp(currentPos, 0.03);
-  camera.lookAt(currentLookAt);
+  camera.position.lerp(currentPos, 0.05);
+  currentLookAtLerpObj.position.lerp(currentLookAt, 0.05);
+  camera.lookAt(currentLookAtLerpObj.position);
 
 }
 
-const determineMoreTerrain = () => {
-
-  raycaster.set(char.position, new THREE.Vector3(0, -1, 0));
-  const intersects = raycaster.intersectObjects(particleMeshes);
-
-  if(!intersects.length) return;
-  if(activeTile !== intersects[0].object.name) createSurroundingTiles(intersects[0].object.name);
-
-};
-
 const charUpdate = () => {
 
-  // Setting char at the 11th element in pathPositions so that cam does not see the clean up of the path behind the char
-  char.position.set(pathPositions[10].x, pathPositions[10].y, pathPositions[10].z);
-  pathPositions.shift();
+  char.position.set(
+    pathCurve[pathCurveCounter].x, 
+    pathCurve[pathCurveCounter].y, 
+    pathCurve[pathCurveCounter].z
+  );
+  char.lookAt(
+    pathCurve[pathCurveCounter + 1].x, 
+    pathCurve[pathCurveCounter + 1].y, 
+    pathCurve[pathCurveCounter + 1].z
+  );
 
-  drawPathCounter++;
-  // if(drawPathCounter % 10 === 0) createPath(1, true);
-  // else createPath(1, false);
-  createPath(1, true);
+  if(pathCurveCounter === 39) {
+    pathCurveCounter = 30;
+    pathPositions.shift();
+    createPath(1);
+  }
+  else pathCurveCounter++;
 
   camUpdate();
-  determineMoreTerrain();
 
 };
 
@@ -496,12 +490,11 @@ const render = (now) => {
     updateParticles();
   }
 
-  if(now - lastTimestamp >= 100) {
+  if(now - lastTimestamp >= 10) {
     lastTimestamp = now;
     charUpdate();
   }
 
-  // controls.update();
   renderer.render(scene, camera);
   requestAnimationFrame(render.bind(this));
 
