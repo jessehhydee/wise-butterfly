@@ -26,3 +26,20 @@ html, body {
   left: 0px;
   background: #0B1C25;
 }
+
+
+
+button {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  z-index: 10;
+  width: fit-content;
+  height: fit-content;
+  border-radius: 50px;
+  display: flex;
+  border: 1px solid #FFFFFF;
+  cursor: pointer;
+  background: inherit;
+  padding: 10px;
+}

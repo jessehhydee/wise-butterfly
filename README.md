@@ -10,6 +10,6 @@ Finally, figure out which one of the surviving positions is the lowest on the y-
 
 <a href="https://hydeit.co/wise-butterfly/" target="_blank">Click here to check it out!</a>
 
-### Screenshots
+### Screenshot
 
 ![alt text](https://github.com/jessehhydee/wise-butterfly/blob/main/assets/screenshot.png?raw=true)
