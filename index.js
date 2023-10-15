@@ -250,7 +250,7 @@ const createTile = () => {
 
   const setParticleMesh = (tileName) => {
 
-    const geo   = new THREE.CircleGeometry(0.3, 4);
+    const geo   = new THREE.CircleGeometry(0.15, 4);
     const mat   = new THREE.MeshStandardMaterial({
       color:  0x31759D, 
       side:   THREE.DoubleSide
@@ -345,7 +345,8 @@ const createPath = (pathSegments) => {
           particleManipulator.scale
         );
 
-        if(activePathPos.distanceTo(particleManipulator.position) < 15)
+        const distanceTo = activePathPos.distanceTo(particleManipulator.position);
+        if(distanceTo > 7 && distanceTo < 15)
           if(activePathPos !== particleManipulator.position && particleManipulator.position !== prevActivePathPos)
             surroundingPositions.push({
               pos:      JSON.stringify(particleManipulator.position),
@@ -390,6 +391,9 @@ const createPath = (pathSegments) => {
 
     }
 
+    if(!availablePositions.length)
+      availablePositions = positions.slice(positions.length / 2, positions.length);
+
     // Sorting from lowest to highest based on the y axis.
     // [0] will always be the lowaest of the collection.
     availablePositions.sort((a, b) => a.pos.y - b.pos.y);
@@ -403,7 +407,8 @@ const createPath = (pathSegments) => {
     const surroundingPositions  = getSurroundingPositions();
     const dir                   = getDir(prevActivePathPos, activePathPos);
     const positions             = getAvailalbePositions(surroundingPositions, dir);
-    prevActivePathPos           = activePathPos;
+
+    prevActivePathPos = activePathPos;
 
     let tileName;
     if(JSON.stringify(activePathPos) !== JSON.stringify(positions[0])) {
