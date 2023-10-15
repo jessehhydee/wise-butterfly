@@ -44,8 +44,9 @@ const setScene = async () => {
     height: container.offsetHeight
   };
 
-  scene = new THREE.Scene();
+  scene             = new THREE.Scene();
   scene.background  = new THREE.Color(0x0B1C25);
+  scene.fog         = new THREE.Fog(0x0B1C25, 130, 170);
 
   camY    = 220,
   camZ    = -160;
@@ -59,8 +60,6 @@ const setScene = async () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   clock = new THREE.Clock()
 
-  // scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 2));
-
   raycaster               = new THREE.Raycaster();
   raycaster.firstHitOnly  = true;
   lastTimestamp           = 0;
@@ -71,7 +70,6 @@ const setScene = async () => {
   currentLookAt           = new THREE.Vector3();
   currentLookAtLerpObj    = new THREE.Object3D();
 
-  setFog();
   await createChar();
   setTileValues();
   createTile();
@@ -84,43 +82,6 @@ const setScene = async () => {
   sceneRendered = true;
 
 };
-
-const setFog = () => {
-
-  THREE.ShaderChunk.fog_pars_vertex += `
-    #ifdef USE_FOG
-      varying vec3 vWorldPosition;
-    #endif
-  `;
-
-  THREE.ShaderChunk.fog_vertex += `
-    #ifdef USE_FOG
-      vec4 worldPosition = projectionMatrix * modelMatrix * vec4(position, 1.0);
-      vWorldPosition = worldPosition.xyz;
-    #endif
-  `;
-
-  THREE.ShaderChunk.fog_pars_fragment += `
-    #ifdef USE_FOG
-      varying vec3 vWorldPosition;
-      float fogHeight = 10.0;
-    #endif
-  `;
-
-  const FOG_APPLIED_LINE = 'gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );';
-  THREE.ShaderChunk.fog_fragment = THREE.ShaderChunk.fog_fragment.replace(FOG_APPLIED_LINE, `
-    float heightStep = smoothstep(fogHeight, 0.0, vWorldPosition.y);
-    float fogFactorHeight = smoothstep( fogNear * 0.7, fogFar, vFogDepth );
-    float fogFactorMergeHeight = fogFactorHeight * heightStep;
-    
-    gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactorMergeHeight );
-    ${FOG_APPLIED_LINE}
-  `);
-
-  scene.fog = new THREE.Fog(0x0B1C25, 180, 220);
-
-}
-
 
 const createChar = async () => {
 

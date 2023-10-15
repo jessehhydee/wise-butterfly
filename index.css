@@ -24,6 +24,5 @@ html, body {
   z-index: 1;
   top: 0px;
   left: 0px;
-  background: #0d1230;
-  background: radial-gradient(circle, #0d2430 0%, #0a0a0a 100%);
+  background: #0B1C25;
 }
