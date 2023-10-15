@@ -8,6 +8,8 @@ const canvas    = document.querySelector('.canvas');
 let
   sizes,
   scene,
+  camY,
+  camZ,
   camera,
   renderer,
   raycaster,
@@ -45,8 +47,10 @@ const setScene = async () => {
   scene = new THREE.Scene();
   scene.background  = new THREE.Color(0x0B1C25);
 
-  camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 1, 400);
-  camera.position.set(0, 60, 80);
+  camY    = 220,
+  camZ    = -160;
+  camera  = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 1, 400);
+  camera.position.set(0, camY, camZ);
   
   renderer = new THREE.WebGLRenderer({
     canvas:     canvas,
@@ -55,7 +59,7 @@ const setScene = async () => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   clock = new THREE.Clock()
 
-  scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 2));
+  // scene.add(new THREE.HemisphereLight(0xffffbb, 0x080820, 2));
 
   raycaster               = new THREE.Raycaster();
   raycaster.firstHitOnly  = true;
@@ -113,7 +117,7 @@ const setFog = () => {
     ${FOG_APPLIED_LINE}
   `);
 
-  scene.fog = new THREE.Fog(0x0B1C25, 200, 240);
+  scene.fog = new THREE.Fog(0x0B1C25, 180, 220);
 
 }
 
@@ -251,10 +255,7 @@ const createTile = () => {
   const setParticleMesh = (tileName) => {
 
     const geo   = new THREE.CircleGeometry(0.15, 4);
-    const mat   = new THREE.MeshStandardMaterial({
-      color:  0x31759D, 
-      side:   THREE.DoubleSide
-    });
+    const mat   = new THREE.MeshBasicMaterial({color: 0x31759D});
     const mesh  = new THREE.InstancedMesh(geo, mat, amountOfParticlesInTile);
     mesh.name   = tileName;
   
@@ -362,7 +363,7 @@ const createPath = (pathSegments) => {
   
   const getDir = (from, to) => {
 
-    if(!from) return -1;
+    if(!from) return 9;
 
     const relativePos = new THREE.Vector3();
     relativePos.subVectors(to, from);
@@ -373,7 +374,7 @@ const createPath = (pathSegments) => {
 
   const getAvailalbePositions = (positions, dirForward) => {
 
-    const availablePositions = [];
+    let availablePositions = [];
 
     for(let i = 0; i < positions.length; i++) {
 
@@ -453,7 +454,7 @@ const listenTo = () => {
 const camUpdate = () => {
 
   const calcIdealOffset = () => {
-    const idealOffset = new THREE.Vector3(0, 20, -45);
+    const idealOffset = new THREE.Vector3(0, camY, camZ);
     idealOffset.applyQuaternion(char.quaternion);
     idealOffset.add(char.position);
     return idealOffset;
@@ -475,6 +476,9 @@ const camUpdate = () => {
   camera.position.lerp(currentPos, 0.05);
   currentLookAtLerpObj.position.lerp(currentLookAt, 0.05);
   camera.lookAt(currentLookAtLerpObj.position);
+
+  if(camY > 20)   camY -= 2;
+  if(camZ < -24)  camZ += 2;
 
 }
 
